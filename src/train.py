@@ -1,29 +1,26 @@
-from gymnasium.wrappers import TimeLimit
-from env_hiv import HIVPatient
-from evaluate import evaluate_HIV, evaluate_HIV_population
-
 # Imports
-
 import os
 import random
 from copy import deepcopy
+
 import numpy as np
 import torch
 import torch.nn as nn
+from gymnasium.wrappers import TimeLimit
+
+from env_hiv import HIVPatient
+from evaluate import evaluate_HIV, evaluate_HIV_population
+
 
 env = TimeLimit(
-    env=HIVPatient(domain_randomization=False), max_episode_steps=200
+    env=HIVPatient(domain_randomization=True), max_episode_steps=200
 )  # The time wrapper limits the number of steps in an episode at 200.
 # Now is the floor is yours to implement the agent and train it.
 
-#
-#env = TimeLimit(
-   # env=HIVPatient(domain_randomization=True), max_episode_steps=200
 
 # You have to implement your own agent.
 # Don't modify the methods names and signatures, but you can add methods.
 # ENJOY!
-
 
 ###############################################################################
 # We implement a DQN
@@ -36,18 +33,18 @@ class ProjectAgent:
             return torch.argmax(Q).item()
 
     def save(self, path):
-        self.path = path + "/model_david.pt"
+        self.path = path + "/model_raki.pt"
         torch.save(self.model.state_dict(), self.path)
-        return
+        return 
 
     def load(self):
         device = torch.device('cpu')
-        self.path = os.getcwd() + "/model_david.pt"
+        self.path = os.getcwd() + "/model_raki.pt"
         self.model = self.myDQN({}, device)
         self.model.load_state_dict(torch.load(self.path, map_location=device))
         self.model.eval()
-        return
-
+        return 
+    
     # Now we add our methods
     # Function to take the greedy action
     def act_greedy(self, myDQN, state):
@@ -55,7 +52,7 @@ class ProjectAgent:
         with torch.no_grad():
             Q = myDQN(torch.Tensor(state).unsqueeze(0).to(device))
             return torch.argmax(Q).item()
-
+        
     def gradient_step(self):
         if len(self.memory) > self.batch_size:
             X, A, R, Y, D = self.memory.sample(self.batch_size)
@@ -65,7 +62,7 @@ class ProjectAgent:
             loss = self.criterion(QXA, update.unsqueeze(1))
             self.optimizer.zero_grad()
             loss.backward()
-            self.optimizer.step()
+            self.optimizer.step() 
 
     # DQN (ideas for later: double DQN? more layers? test dropout)
     def myDQN(self, config, device):
@@ -104,7 +101,7 @@ class ProjectAgent:
                 'buffer_size': 100000,
                 'epsilon_min': 0.02,
                 'epsilon_max': 1.,
-                'epsilon_decay_period': 21000,
+                'epsilon_decay_period': 21000, 
                 'epsilon_delay_decay': 100,
                 'batch_size': 790,
                 'gradient_steps': 3,
@@ -113,7 +110,7 @@ class ProjectAgent:
                 'update_target_tau': 0.005,
                 'criterion': torch.nn.SmoothL1Loss()}
 
-
+    
         device = device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         print('Using device:', device)
         self.model = self.myDQN(config, device)
@@ -135,7 +132,7 @@ class ProjectAgent:
 
         self.criterion = config['criterion'] if 'criterion' in config.keys() else torch.nn.MSELoss()
         lr = config['learning_rate'] if 'learning_rate' in config.keys() else 0.001
-
+        
         self.optimizer = config['optimizer'] if 'optimizer' in config.keys() else torch.optim.Adam(self.model.parameters(), lr=lr)
         self.optimizer2 = config['optimizer'] if 'optimizer' in config.keys() else torch.optim.Adam(self.model.parameters(), lr=lr)
         #self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=88, gamma=0.1)
@@ -150,7 +147,7 @@ class ProjectAgent:
 
         previous_val = 0
 
-        max_episode = 350
+        max_episode = 350 
 
         episode_return = []
         episode = 0
@@ -169,16 +166,16 @@ class ProjectAgent:
                 action = env.action_space.sample()
             else:
                 action = self.act_greedy(self.model, state)
-
+            
             next_state, reward, done, trunc, _ = env.step(action)
             self.memory.append(state, action, reward, next_state, done)
             episode_cum_reward += reward
-
-            for _ in range(nb_gradient_steps):
+            
+            for _ in range(nb_gradient_steps): 
                 self.gradient_step()
 
-            if update_target_strategy == 'replace':
-                if step % update_target_freq == 0:
+            if update_target_strategy == 'replace': 
+                if step % update_target_freq == 0: 
                     self.target_model.load_state_dict(self.model.state_dict())
             if update_target_strategy == 'ema':
                 target_state_dict = self.target_model.state_dict()
@@ -187,13 +184,13 @@ class ProjectAgent:
                 for key in model_state_dict:
                     target_state_dict[key] = tau*model_state_dict[key] + (1-tau)*target_state_dict[key]
                 self.target_model.load_state_dict(target_state_dict)
-
+            
             step += 1
             if done or trunc:
                 episode += 1
-
+                
                 validation_score = evaluate_HIV(agent=self, nb_episode=1)
-
+                                
                 print(f"Episode {episode:3d} | "
                       f"Epsilon {epsilon:6.2f} | "
                       f"Batch Size {len(self.memory):5d} | "
@@ -207,7 +204,7 @@ class ProjectAgent:
                     path = os.getcwd()
                     self.save(path)
                 episode_return.append(episode_cum_reward)
-
+                
                 episode_cum_reward = 0
             else:
                 state = next_state
@@ -221,7 +218,7 @@ class ProjectAgent:
 # We create a replay buffer (replay_buffer2 given in class):
 class ReplayBuffer:
     def __init__(self, capacity, device):
-        self.capacity = capacity
+        self.capacity = capacity 
         self.data = []
         self.index = 0
         self.device = device
@@ -235,22 +232,3 @@ class ReplayBuffer:
         return list(map(lambda x:torch.Tensor(np.array(x)).to(self.device), list(zip(*batch))))
     def __len__(self):
         return len(self.data)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
